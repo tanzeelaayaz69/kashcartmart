@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, SalesData, Notification } from '../types';
+import { Product, Order, SalesData, Notification, StoreInfo, StoreStatusLog, StoreSchedule, ChangeType } from '../types';
 
 interface AppContextType {
   products: Product[];
   orders: Order[];
   salesData: SalesData[];
   notifications: Notification[];
+  storeInfo: StoreInfo;
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
   updateStock: (id: string, newQuantity: number) => void;
@@ -14,6 +15,9 @@ interface AppContextType {
   updateOrderStatus: (id: string, status: Order['status'], reason?: string) => void;
   createOrder: (order: Omit<Order, 'id' | 'date' | 'status'>) => void;
   markAllNotificationsAsRead: () => void;
+  toggleStoreStatus: (reason?: string, reasonType?: string) => void;
+  updateStoreSchedule: (schedule: StoreSchedule) => void;
+  forceStoreStatus: (isOpen: boolean, reason?: string, adminName?: string) => void;
   stats: {
     todayOrders: number;
     todayRevenue: number;
@@ -84,6 +88,18 @@ const INITIAL_SALES: SalesData[] = [
   { date: 'Sun', revenue: 6100, orders: 19 },
 ];
 
+const INITIAL_STORE_INFO: StoreInfo = {
+  isOpen: true,
+  lastStatusChange: new Date().toISOString(),
+  schedule: {
+    enabled: false,
+    openTime: '09:00',
+    closeTime: '21:00',
+    daysOfWeek: [0, 1, 2, 3, 4, 5, 6], // All days
+  },
+  statusLogs: [],
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load from local storage or fall back to mock data
   const [products, setProducts] = useState<Product[]>(() => {
@@ -99,6 +115,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [salesData] = useState<SalesData[]>(INITIAL_SALES);
 
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>(() => {
+    const saved = localStorage.getItem('mart_store_info');
+    return saved ? JSON.parse(saved) : INITIAL_STORE_INFO;
+  });
+
+
   // Persistence Effects
   useEffect(() => {
     localStorage.setItem('mart_products', JSON.stringify(products));
@@ -107,6 +129,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('mart_orders', JSON.stringify(orders));
   }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('mart_store_info', JSON.stringify(storeInfo));
+  }, [storeInfo]);
+
 
   const addNotification = (title: string, desc: string, type: Notification['type']) => {
     const newNotif: Notification = {
@@ -254,6 +281,133 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(orders.map(o => o.id === id ? { ...o, status, cancellationReason: reason || o.cancellationReason } : o));
   };
 
+  // Store Management Functions
+  const createStatusLog = (status: 'open' | 'closed', changeType: ChangeType, reason?: string, reasonType?: string, changedBy?: string): StoreStatusLog => {
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      status,
+      timestamp: new Date().toISOString(),
+      changeType,
+      reason,
+      reasonType: reasonType as any,
+      changedBy,
+    };
+  };
+
+  const toggleStoreStatus = (reason?: string, reasonType?: string) => {
+    const newStatus = !storeInfo.isOpen;
+    const log = createStatusLog(newStatus ? 'open' : 'closed', 'manual', reason, reasonType);
+
+    setStoreInfo(prev => ({
+      ...prev,
+      isOpen: newStatus,
+      closeReason: newStatus ? undefined : reason,
+      closeReasonType: newStatus ? undefined : (reasonType as any),
+      lastStatusChange: new Date().toISOString(),
+      statusLogs: [log, ...prev.statusLogs].slice(0, 50), // Keep last 50 logs
+    }));
+
+    addNotification(
+      newStatus ? 'Store Opened' : 'Store Closed',
+      newStatus ? 'Your store is now accepting orders' : `Store closed${reason ? `: ${reason}` : ''}`,
+      newStatus ? 'success' : 'info'
+    );
+  };
+
+  const updateStoreSchedule = (schedule: StoreSchedule) => {
+    setStoreInfo(prev => ({
+      ...prev,
+      schedule,
+    }));
+
+    addNotification(
+      'Schedule Updated',
+      schedule.enabled ? 'Auto open/close schedule has been enabled' : 'Auto open/close schedule has been disabled',
+      'success'
+    );
+  };
+
+  const forceStoreStatus = (isOpen: boolean, reason?: string, adminName?: string) => {
+    const log = createStatusLog(isOpen ? 'open' : 'closed', 'manual', reason, undefined, adminName);
+
+    setStoreInfo(prev => ({
+      ...prev,
+      isOpen,
+      closeReason: isOpen ? undefined : reason,
+      lastStatusChange: new Date().toISOString(),
+      statusLogs: [log, ...prev.statusLogs].slice(0, 50),
+    }));
+
+    addNotification(
+      `Store ${isOpen ? 'Opened' : 'Closed'} by Admin`,
+      adminName ? `${adminName} has ${isOpen ? 'opened' : 'closed'} your store` : `Admin has ${isOpen ? 'opened' : 'closed'} your store`,
+      'alert'
+    );
+  };
+
+  // Auto open/close based on schedule
+  useEffect(() => {
+    if (!storeInfo.schedule.enabled) return;
+
+    const checkSchedule = () => {
+      const now = new Date();
+      const currentDay = now.getDay();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      // Check if today is a working day
+      if (!storeInfo.schedule.daysOfWeek.includes(currentDay)) {
+        if (storeInfo.isOpen) {
+          const log = createStatusLog('closed', 'automatic', 'Scheduled day off');
+          setStoreInfo(prev => ({
+            ...prev,
+            isOpen: false,
+            closeReason: 'Scheduled day off',
+            lastStatusChange: new Date().toISOString(),
+            statusLogs: [log, ...prev.statusLogs].slice(0, 50),
+          }));
+        }
+        return;
+      }
+
+      // Check if it's time to open
+      if (currentTime >= storeInfo.schedule.openTime && currentTime < storeInfo.schedule.closeTime) {
+        if (!storeInfo.isOpen) {
+          const log = createStatusLog('open', 'automatic', 'Scheduled opening');
+          setStoreInfo(prev => ({
+            ...prev,
+            isOpen: true,
+            closeReason: undefined,
+            lastStatusChange: new Date().toISOString(),
+            statusLogs: [log, ...prev.statusLogs].slice(0, 50),
+          }));
+          addNotification('Store Opened', 'Store automatically opened based on schedule', 'success');
+        }
+      } else {
+        // It's outside working hours
+        if (storeInfo.isOpen) {
+          const log = createStatusLog('closed', 'automatic', 'Scheduled closing');
+          setStoreInfo(prev => ({
+            ...prev,
+            isOpen: false,
+            closeReason: 'Scheduled closing',
+            lastStatusChange: new Date().toISOString(),
+            statusLogs: [log, ...prev.statusLogs].slice(0, 50),
+          }));
+          addNotification('Store Closed', 'Store automatically closed based on schedule', 'info');
+        }
+      }
+    };
+
+    // Check immediately
+    checkSchedule();
+
+    // Check every minute
+    const interval = setInterval(checkSchedule, 60000);
+
+    return () => clearInterval(interval);
+  }, [storeInfo.schedule, storeInfo.isOpen]);
+
+
   const stats = {
     todayOrders: orders.filter(o => new Date(o.date).toDateString() === new Date().toDateString()).length,
     todayRevenue: orders
@@ -265,7 +419,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ products, orders, salesData, notifications, addProduct, updateProduct, updateStock, deleteProduct, toggleProductAvailability, updateOrderStatus, createOrder, markAllNotificationsAsRead, stats }}>
+    <AppContext.Provider value={{
+      products,
+      orders,
+      salesData,
+      notifications,
+      storeInfo,
+      addProduct,
+      updateProduct,
+      updateStock,
+      deleteProduct,
+      toggleProductAvailability,
+      updateOrderStatus,
+      createOrder,
+      markAllNotificationsAsRead,
+      toggleStoreStatus,
+      updateStoreSchedule,
+      forceStoreStatus,
+      stats
+    }}>
       {children}
     </AppContext.Provider>
   );

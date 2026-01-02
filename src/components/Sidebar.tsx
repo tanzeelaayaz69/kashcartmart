@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ShoppingCart,
   BarChart3, Settings, X, LogOut,
-  HelpCircle, Star
+  HelpCircle, Star, Store
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
@@ -15,10 +15,11 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
-  const { stats } = useApp();
+  const { stats, storeInfo } = useApp();
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: Store, label: 'Store Status', path: '/store-settings', badge: !storeInfo.isOpen },
     { icon: ShoppingCart, label: 'Orders', path: '/orders' },
     { icon: Package, label: 'Inventory', path: '/inventory' },
     { icon: BarChart3, label: 'Financials', path: '/sales' },
@@ -75,6 +76,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             >
               <item.icon size={20} className={clsx("transition-transform group-hover:scale-110")} />
               <span className="text-sm tracking-tight">{item.label}</span>
+              {item.label === 'Store Status' && !storeInfo.isOpen && (
+                <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50" />
+              )}
               {item.label === 'Orders' && stats.pendingOrders > 0 && (
                 <span className="ml-auto w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-black animate-pulse shadow-lg shadow-red-500/20">
                   {stats.pendingOrders}

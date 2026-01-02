@@ -48,3 +48,33 @@ export interface Notification {
   isUnread: boolean;
   timestamp: number;
 }
+
+export type StoreStatus = 'open' | 'closed';
+export type CloseReason = 'out_of_stock' | 'staff_unavailable' | 'closed_for_day' | 'custom';
+export type ChangeType = 'manual' | 'automatic';
+
+export interface StoreStatusLog {
+  id: string;
+  status: StoreStatus;
+  timestamp: string;
+  changeType: ChangeType;
+  reason?: string;
+  reasonType?: CloseReason;
+  changedBy?: string; // For admin overrides
+}
+
+export interface StoreSchedule {
+  enabled: boolean;
+  openTime: string; // HH:mm format
+  closeTime: string; // HH:mm format
+  daysOfWeek: number[]; // 0-6 (Sunday-Saturday)
+}
+
+export interface StoreInfo {
+  isOpen: boolean;
+  closeReason?: string;
+  closeReasonType?: CloseReason;
+  lastStatusChange: string;
+  schedule: StoreSchedule;
+  statusLogs: StoreStatusLog[];
+}

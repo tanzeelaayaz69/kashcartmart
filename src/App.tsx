@@ -7,6 +7,7 @@ import Orders from './pages/Orders';
 import Sales from './pages/Sales';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
+import StoreSettings from './pages/StoreSettings';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="orders" element={<Orders />} />
             <Route path="sales" element={<Sales />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="store-settings" element={<StoreSettings />} />
             <Route path="help" element={<Support />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import StoreStatusBanner from './StoreStatusBanner';
 import { Menu, Bell, Search, Globe, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
@@ -15,6 +16,9 @@ const Layout = () => {
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#FAFAFB]">
+        {/* Store Status Banner */}
+        <StoreStatusBanner />
+
         {/* Top Navigation Bar */}
         <header className="bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 lg:px-10 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm shadow-gray-200/5">
           {/* Left: Mobile Toggle & Brand */}
