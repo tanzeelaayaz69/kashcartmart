@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import StoreStatusBanner from './StoreStatusBanner';
-import { Menu, Bell, Search, Globe, ChevronDown } from 'lucide-react';
+import { Menu, Bell, Search, Globe, ChevronDown, User, Settings, LogOut, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { Link } from 'react-router-dom';
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { notifications, markAllNotificationsAsRead, stats } = useApp();
 
   return (
@@ -103,14 +106,114 @@ const Layout = () => {
 
             <div className="h-8 w-[1px] bg-gray-100 hidden sm:block" />
 
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-xs font-black text-gray-900 leading-none">Hassan Q.</span>
-                <span className="text-[9px] font-black text-pine-600 uppercase tracking-widest mt-1 opacity-70">Gold Partner</span>
-              </div>
-              <div className="w-10 h-10 rounded-2xl bg-pine-100 flex items-center justify-center text-pine-600 font-black text-sm border border-pine-200/50 shadow-inner overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1614031679232-0dae72906163?auto=format&fit=crop&q=80&w=100" alt="" className="w-full h-full object-cover" />
-              </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-2xl transition-colors"
+              >
+                <div className="flex flex-col items-end hidden sm:flex">
+                  <span className="text-xs font-black text-gray-900 leading-none">Hassan Q.</span>
+                  <span className="text-[9px] font-black text-pine-600 uppercase tracking-widest mt-1 opacity-70">Gold Partner</span>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-pine-100 flex items-center justify-center text-pine-600 font-black text-sm border border-pine-200/50 shadow-inner overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1614031679232-0dae72906163?auto=format&fit=crop&q=80&w=100" alt="" className="w-full h-full object-cover" />
+                </div>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Profile Dropdown */}
+              {showProfileMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowProfileMenu(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-72 bg-white rounded-3xl shadow-2xl shadow-gray-200 border border-gray-100 z-50 overflow-hidden"
+                  >
+                    {/* Profile Header */}
+                    <div className="p-6 bg-gradient-to-br from-pine-50 to-pine-100/50 border-b border-pine-100">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-pine-100 flex items-center justify-center text-pine-600 font-black text-lg border-2 border-pine-200 shadow-inner overflow-hidden">
+                          <img src="https://images.unsplash.com/photo-1614031679232-0dae72906163?auto=format&fit=crop&q=80&w=100" alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-gray-900">Hassan Q.</h3>
+                          <p className="text-xs font-bold text-pine-600 uppercase tracking-wider">Gold Partner</p>
+                          <p className="text-xs text-gray-500 mt-1">+91 9906100000</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="p-3 space-y-1">
+                      <Link
+                        to="/settings"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 transition-colors group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-pine-100 group-hover:text-pine-600 transition-colors">
+                          <User size={18} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">My Profile</p>
+                          <p className="text-xs text-gray-400">View and edit profile</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/settings"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 transition-colors group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-pine-100 group-hover:text-pine-600 transition-colors">
+                          <Settings size={18} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">Settings</p>
+                          <p className="text-xs text-gray-400">Manage preferences</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/store-settings"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 transition-colors group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-pine-100 group-hover:text-pine-600 transition-colors">
+                          <Store size={18} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">Store Status</p>
+                          <p className="text-xs text-gray-400">Manage store hours</p>
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* Logout */}
+                    <div className="p-3 border-t border-gray-100">
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          setShowLogoutConfirm(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 transition-colors group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-red-100 group-hover:text-red-600 transition-colors">
+                          <LogOut size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-gray-900 text-sm group-hover:text-red-600 transition-colors">Logout</p>
+                          <p className="text-xs text-gray-400">Sign out of your account</p>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -126,6 +229,56 @@ const Layout = () => {
           </motion.div>
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLogoutConfirm(false)}
+            className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative bg-white rounded-[32px] w-full max-w-md shadow-2xl shadow-gray-950/20 overflow-hidden"
+          >
+            <div className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500 mx-auto">
+                <LogOut size={40} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-gray-900">Logout?</h2>
+                <p className="text-gray-500 font-medium">
+                  Are you sure you want to logout? You'll need to sign in again to access your mart.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-4 px-6 bg-gray-100 hover:bg-gray-200 text-gray-700 font-black rounded-2xl transition-all text-sm uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    // Add actual logout logic here
+                    alert('Logging out...');
+                  }}
+                  className="flex-1 py-4 px-6 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl transition-all text-sm uppercase tracking-widest shadow-lg shadow-red-500/30"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

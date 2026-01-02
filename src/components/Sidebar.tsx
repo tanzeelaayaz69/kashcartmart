@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ShoppingCart,
   BarChart3, Settings, X, LogOut,
-  HelpCircle, Star, Store
+  HelpCircle, Star, History
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
@@ -19,9 +19,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Store, label: 'Store Status', path: '/store-settings', badge: !storeInfo.isOpen },
     { icon: ShoppingCart, label: 'Orders', path: '/orders' },
     { icon: Package, label: 'Inventory', path: '/inventory' },
+    { icon: History, label: 'Inventory Logs', path: '/inventory-logs' },
     { icon: BarChart3, label: 'Financials', path: '/sales' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];

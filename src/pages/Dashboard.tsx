@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import StatCard from '../components/StatCard';
-import StoreStatusToggle from '../components/StoreStatusToggle';
+import PowerButton from '../components/PowerButton';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -23,6 +23,7 @@ const Dashboard = () => {
           <p className="text-gray-500 font-medium">Monitoring your Srinagar mart's performance.</p>
         </div>
         <div className="flex gap-3">
+          <PowerButton />
           <Link
             to="/inventory"
             className="flex items-center gap-2 px-6 py-2.5 bg-pine-600 text-white rounded-xl hover:bg-pine-700 transition-all shadow-lg shadow-pine-600/20 font-bold"
@@ -64,9 +65,6 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts & Inventory Status */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Store Status Toggle - Prominent Position */}
-          <StoreStatusToggle />
-
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
               <AlertTriangle size={20} className="text-amber-500" />

@@ -8,6 +8,7 @@ import Sales from './pages/Sales';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
 import StoreSettings from './pages/StoreSettings';
+import InventoryLogs from './pages/InventoryLogs';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="sales" element={<Sales />} />
             <Route path="settings" element={<Settings />} />
             <Route path="store-settings" element={<StoreSettings />} />
+            <Route path="inventory-logs" element={<InventoryLogs />} />
             <Route path="help" element={<Support />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -10,6 +10,7 @@ import {
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Order } from '../types';
+import OrderSuccessModal from '../components/OrderSuccessModal';
 
 const STATUS_FLOW: Order['status'][] = ['New', 'Accepted', 'Packed', 'Picked', 'Delivered'];
 
@@ -18,6 +19,7 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'New' | 'Ongoing' | 'Completed' | 'Cancelled'>('New');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     return {
@@ -218,7 +220,10 @@ const Orders = () => {
                     {order.status === 'New' ? (
                       <>
                         <button
-                          onClick={() => updateOrderStatus(order.id, 'Accepted')}
+                          onClick={() => {
+                            updateOrderStatus(order.id, 'Accepted');
+                            setShowSuccessModal(order.id);
+                          }}
                           className="flex-1 py-4 bg-pine-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-pine-700 transition-all shadow-lg shadow-pine-600/20 active:scale-[0.98]"
                         >
                           Accept Order
@@ -316,6 +321,17 @@ const Orders = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Order Success Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <OrderSuccessModal
+            isOpen={!!showSuccessModal}
+            orderId={showSuccessModal}
+            onClose={() => setShowSuccessModal(null)}
+          />
         )}
       </AnimatePresence>
 

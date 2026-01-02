@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, SalesData, Notification, StoreInfo, StoreStatusLog, StoreSchedule, ChangeType } from '../types';
+import { Product, Order, SalesData, Notification, StoreInfo, StoreStatusLog, StoreSchedule, ChangeType, InventoryLog, InventoryActionType, StockStatus } from '../types';
+import * as InventoryManager from '../utils/inventoryManager';
 
 interface AppContextType {
   products: Product[];
@@ -7,13 +8,16 @@ interface AppContextType {
   salesData: SalesData[];
   notifications: Notification[];
   storeInfo: StoreInfo;
+  inventoryLogs: InventoryLog[];
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
-  updateStock: (id: string, newQuantity: number) => void;
+  updateStock: (id: string, newQuantity: number, reason?: string, performedBy?: string) => void;
   deleteProduct: (id: string) => void;
   toggleProductAvailability: (id: string, reason?: string) => void;
   updateOrderStatus: (id: string, status: Order['status'], reason?: string) => void;
   createOrder: (order: Omit<Order, 'id' | 'date' | 'status'>) => void;
+  validateOrderStock: (items: { productId: string; quantity: number }[]) => { valid: boolean; errors: string[] };
+  handlePaymentFailure: (orderId: string) => void;
   markAllNotificationsAsRead: () => void;
   toggleStoreStatus: (reason?: string, reasonType?: string) => void;
   updateStoreSchedule: (schedule: StoreSchedule) => void;
@@ -24,6 +28,8 @@ interface AppContextType {
     stockCount: number;
     pendingOrders: number;
     unreadNotifications: number;
+    lowStockProducts: number;
+    outOfStockProducts: number;
   };
 }
 
@@ -37,12 +43,12 @@ const twoWeeksAgo = new Date(today); twoWeeksAgo.setDate(twoWeeksAgo.getDate() -
 
 // Mock Data
 const INITIAL_PRODUCTS: Product[] = [
-  { id: '1', name: 'Kashmiri Saffron', category: 'Spices', quantity: 45, price: 250, costPrice: 180, unit: '1g', image: 'https://images.unsplash.com/photo-1629196914168-3a964433827c?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
-  { id: '2', name: 'Walnuts', category: 'Dry Fruits', quantity: 12, price: 850, costPrice: 650, unit: '1kg', image: 'https://images.unsplash.com/photo-1574738686233-1c3358c54583?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
-  { id: '3', name: 'Almonds (Mamra)', category: 'Dry Fruits', quantity: 0, price: 1200, costPrice: 950, unit: '500g', image: 'https://images.unsplash.com/photo-1623428187969-5da2dcea5ebf?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
-  { id: '4', name: 'Kahwa Mix', category: 'Beverages', quantity: 8, price: 350, costPrice: 240, unit: '250g', image: 'https://images.unsplash.com/photo-1563911302283-d2bc129e7c1f?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
-  { id: '5', name: 'Honey (Local)', category: 'Essentials', quantity: 150, price: 500, costPrice: 380, unit: '1L', image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
-  { id: '6', name: 'Pure Gir Cow Ghee', category: 'Dairy', quantity: 5, price: 1200, costPrice: 900, unit: '500ml', image: 'https://images.unsplash.com/photo-1589927986089-35812388d1f4?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true },
+  { id: '1', name: 'Kashmiri Saffron', category: 'Spices', quantity: 45, price: 250, costPrice: 180, unit: '1g', image: 'https://images.unsplash.com/photo-1629196914168-3a964433827c?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'in_stock', lowStockThreshold: 10, reservedQuantity: 0 },
+  { id: '2', name: 'Walnuts', category: 'Dry Fruits', quantity: 12, price: 850, costPrice: 650, unit: '1kg', image: 'https://images.unsplash.com/photo-1574738686233-1c3358c54583?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'in_stock', lowStockThreshold: 5, reservedQuantity: 0 },
+  { id: '3', name: 'Almonds (Mamra)', category: 'Dry Fruits', quantity: 0, price: 1200, costPrice: 950, unit: '500g', image: 'https://images.unsplash.com/photo-1623428187969-5da2dcea5ebf?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'out_of_stock', lowStockThreshold: 5, reservedQuantity: 0 },
+  { id: '4', name: 'Kahwa Mix', category: 'Beverages', quantity: 8, price: 350, costPrice: 240, unit: '250g', image: 'https://images.unsplash.com/photo-1563911302283-d2bc129e7c1f?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'low_stock', lowStockThreshold: 10, reservedQuantity: 0 },
+  { id: '5', name: 'Honey (Local)', category: 'Essentials', quantity: 150, price: 500, costPrice: 380, unit: '1L', image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'in_stock', lowStockThreshold: 20, reservedQuantity: 0 },
+  { id: '6', name: 'Pure Gir Cow Ghee', category: 'Dairy', quantity: 5, price: 1200, costPrice: 900, unit: '500ml', image: 'https://images.unsplash.com/photo-1589927986089-35812388d1f4?auto=format&fit=crop&q=80&w=200', lastUpdated: new Date().toISOString(), isAvailable: true, stockStatus: 'low_stock', lowStockThreshold: 10, reservedQuantity: 0 },
 ];
 
 const INITIAL_ORDERS: Order[] = [
@@ -120,6 +126,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_STORE_INFO;
   });
 
+  const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>(() => {
+    const saved = localStorage.getItem('mart_inventory_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Persistence Effects
   useEffect(() => {
@@ -134,6 +144,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('mart_store_info', JSON.stringify(storeInfo));
   }, [storeInfo]);
 
+  useEffect(() => {
+    localStorage.setItem('mart_inventory_logs', JSON.stringify(inventoryLogs));
+  }, [inventoryLogs]);
 
   const addNotification = (title: string, desc: string, type: Notification['type']) => {
     const newNotif: Notification = {
@@ -221,11 +234,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ));
   };
 
-  const updateStock = (id: string, newQuantity: number) => {
-    setProducts(products.map(p =>
-      p.id === id ? { ...p, quantity: newQuantity, lastUpdated: new Date().toISOString() } : p
-    ));
+  const updateStock = (id: string, newQuantity: number, reason?: string, performedBy?: string) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+
+    const previousQuantity = product.quantity;
+    const quantityChanged = newQuantity - previousQuantity;
+
+    // Update product with new quantity and recalculated stock status
+    const updatedProduct = InventoryManager.updateProductQuantity(product, newQuantity);
+
+    // Create inventory log
+    const log = InventoryManager.createInventoryLog(
+      product,
+      performedBy ? 'admin_override' : 'manual_adjustment',
+      quantityChanged,
+      previousQuantity,
+      newQuantity,
+      undefined,
+      reason,
+      performedBy
+    );
+
+    setProducts(products.map(p => p.id === id ? updatedProduct : p));
+    setInventoryLogs(prev => [log, ...prev].slice(0, 500)); // Keep last 500 logs
+
+    // Send notification for stock status changes
+    const statusMessage = InventoryManager.getStockStatusMessage(updatedProduct);
+    if (statusMessage) {
+      addNotification('Stock Alert', statusMessage, 'alert');
+    }
   };
+
+  // Validate if order can be fulfilled
+  const validateOrderStock = (items: { productId: string; quantity: number }[]) => {
+    return InventoryManager.validateStock(products, items);
+  };
+
+  // Handle payment failure - restore inventory
+  const handlePaymentFailure = (orderId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Restore stock
+    const restoredProducts = InventoryManager.restoreStock(products, order.items);
+
+    // Release reserved stock
+    const finalProducts = InventoryManager.releaseReservedStock(restoredProducts, order.items);
+
+    // Create inventory logs for each item
+    const logs: InventoryLog[] = order.items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (!product) return null;
+
+      return InventoryManager.createInventoryLog(
+        product,
+        'payment_failed',
+        item.quantity,
+        product.quantity,
+        product.quantity + item.quantity,
+        orderId,
+        'Payment failed - stock restored'
+      );
+    }).filter(Boolean) as InventoryLog[];
+
+    setProducts(finalProducts);
+    setInventoryLogs(prev => [...logs, ...prev].slice(0, 500));
+
+    // Update order status
+    setOrders(orders.map(o =>
+      o.id === orderId ? { ...o, paymentStatus: 'failed', status: 'Cancelled', cancellationReason: 'Payment failed' } : o
+    ));
+
+    addNotification('Payment Failed', `Order ${orderId} payment failed. Inventory restored.`, 'alert');
+  };
+
 
   const deleteProduct = (id: string) => {
     setProducts(products.filter(p => p.id !== id));
@@ -243,20 +326,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createOrder = (orderData: Omit<Order, 'id' | 'date' | 'status'>) => {
+    // Validate stock availability
+    const validation = validateOrderStock(orderData.items);
+    if (!validation.valid) {
+      addNotification('Order Failed', validation.errors.join('. '), 'alert');
+      return;
+    }
+
     const newOrder: Order = {
       ...orderData,
       id: `ORD-${Math.floor(Math.random() * 9000) + 1000}`,
       date: new Date().toISOString(),
-      status: 'New'
+      status: 'New',
+      paymentStatus: orderData.paymentType === 'Online' ? 'pending' : 'success',
     };
 
-    setProducts(prev => prev.map(p => {
-      const item = newOrder.items.find(i => i.productId === p.id);
-      return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), lastUpdated: new Date().toISOString() } : p;
-    }));
+    // Reduce stock immediately
+    const reducedProducts = InventoryManager.reduceStock(products, newOrder.items);
 
+    // Create inventory logs for each item
+    const logs: InventoryLog[] = newOrder.items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (!product) return null;
+
+      return InventoryManager.createInventoryLog(
+        product,
+        'order_placed',
+        -item.quantity,
+        product.quantity,
+        product.quantity - item.quantity,
+        newOrder.id,
+        `Order placed: ${newOrder.customerName}`
+      );
+    }).filter(Boolean) as InventoryLog[];
+
+    setProducts(reducedProducts);
+    setInventoryLogs(prev => [...logs, ...prev].slice(0, 500));
     setOrders([newOrder, ...orders]);
-    addNotification('Order Created', `You manually created Order #${newOrder.id}`, 'success');
+
+    // Check for low stock notifications
+    reducedProducts.forEach(product => {
+      const statusMessage = InventoryManager.getStockStatusMessage(product);
+      if (statusMessage) {
+        addNotification('Stock Alert', statusMessage, 'alert');
+      }
+    });
+
+    addNotification('Order Created', `Order #${newOrder.id} placed successfully`, 'success');
   };
 
   const updateOrderStatus = (id: string, status: Order['status'], reason?: string) => {
@@ -267,19 +383,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const wasCancelledBefore = (order.status === 'Cancelled' || order.status === 'Rejected') && (status !== 'Cancelled' && status !== 'Rejected');
 
     if (isActuallyCancelled) {
-      setProducts(prev => prev.map(p => {
-        const item = order.items.find(i => i.productId === p.id);
-        return item ? { ...p, quantity: p.quantity + item.quantity, lastUpdated: new Date().toISOString() } : p;
-      }));
+      // Restore stock on cancellation
+      const restoredProducts = InventoryManager.restoreStock(products, order.items);
+
+      // Create inventory logs
+      const logs: InventoryLog[] = order.items.map(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) return null;
+
+        return InventoryManager.createInventoryLog(
+          product,
+          'order_cancelled',
+          item.quantity,
+          product.quantity,
+          product.quantity + item.quantity,
+          order.id,
+          reason || 'Order cancelled'
+        );
+      }).filter(Boolean) as InventoryLog[];
+
+      setProducts(restoredProducts);
+      setInventoryLogs(prev => [...logs, ...prev].slice(0, 500));
+
+      addNotification('Stock Restored', `Inventory restored for cancelled order #${id}`, 'info');
     } else if (wasCancelledBefore) {
-      setProducts(prev => prev.map(p => {
-        const item = order.items.find(i => i.productId === p.id);
-        return item ? { ...p, quantity: Math.max(0, p.quantity - item.quantity), lastUpdated: new Date().toISOString() } : p;
-      }));
+      // Re-reduce stock if uncancelling
+      const reducedProducts = InventoryManager.reduceStock(products, order.items);
+
+      // Create inventory logs
+      const logs: InventoryLog[] = order.items.map(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) return null;
+
+        return InventoryManager.createInventoryLog(
+          product,
+          'order_placed',
+          -item.quantity,
+          product.quantity,
+          product.quantity - item.quantity,
+          order.id,
+          'Order reactivated'
+        );
+      }).filter(Boolean) as InventoryLog[];
+
+      setProducts(reducedProducts);
+      setInventoryLogs(prev => [...logs, ...prev].slice(0, 500));
     }
 
     setOrders(orders.map(o => o.id === id ? { ...o, status, cancellationReason: reason || o.cancellationReason } : o));
   };
+
 
   // Store Management Functions
   const createStatusLog = (status: 'open' | 'closed', changeType: ChangeType, reason?: string, reasonType?: string, changedBy?: string): StoreStatusLog => {
@@ -415,7 +568,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .reduce((acc, curr) => acc + curr.total, 0),
     stockCount: products.reduce((acc, curr) => acc + curr.quantity, 0),
     pendingOrders: orders.filter(o => o.status === 'New' || o.status === 'Accepted').length,
-    unreadNotifications: notifications.filter(n => n.isUnread).length
+    unreadNotifications: notifications.filter(n => n.isUnread).length,
+    lowStockProducts: products.filter(p => p.stockStatus === 'low_stock').length,
+    outOfStockProducts: products.filter(p => p.stockStatus === 'out_of_stock').length,
   };
 
   return (
@@ -425,6 +580,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       salesData,
       notifications,
       storeInfo,
+      inventoryLogs,
       addProduct,
       updateProduct,
       updateStock,
@@ -432,6 +588,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleProductAvailability,
       updateOrderStatus,
       createOrder,
+      validateOrderStock,
+      handlePaymentFailure,
       markAllNotificationsAsRead,
       toggleStoreStatus,
       updateStoreSchedule,

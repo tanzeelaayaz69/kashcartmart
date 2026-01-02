@@ -1,3 +1,6 @@
+export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
+export type InventoryActionType = 'order_placed' | 'order_cancelled' | 'order_returned' | 'manual_adjustment' | 'admin_override' | 'payment_failed';
+
 export interface Product {
   id: string;
   name: string;
@@ -10,6 +13,23 @@ export interface Product {
   lastUpdated: string;
   isAvailable: boolean;
   statusReason?: string;
+  stockStatus: StockStatus;
+  lowStockThreshold: number; // Configurable threshold for low stock alerts
+  reservedQuantity: number; // Quantity reserved for pending orders
+}
+
+export interface InventoryLog {
+  id: string;
+  productId: string;
+  productName: string;
+  orderId?: string;
+  actionType: InventoryActionType;
+  quantityChanged: number; // Positive for additions, negative for reductions
+  previousQuantity: number;
+  newQuantity: number;
+  timestamp: string;
+  reason?: string;
+  performedBy?: string; // For admin/manual adjustments
 }
 
 export interface Order {
@@ -21,6 +41,7 @@ export interface Order {
   total: number;
   status: 'New' | 'Accepted' | 'Packed' | 'Picked' | 'Delivered' | 'Cancelled' | 'Rejected';
   paymentType: 'COD' | 'Online';
+  paymentStatus?: 'pending' | 'success' | 'failed';
   items: OrderItem[];
   cancellationReason?: string;
   isUrgent?: boolean;
